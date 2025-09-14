@@ -1,0 +1,194 @@
+/* SkyBrain 全局样式 - 无需 Tailwind CSS */
+
+/* SkyBrain 深色科技主题 */
+:root {
+  --primary-dark: #0A1628;
+  --primary-blue: #1890FF;
+  --accent-orange: #FF7A00;
+  --success-green: #52C41A;
+  --warning-yellow: #FAAD14;
+  --error-red: #FF4D4F;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8C8C8C;
+  --border-color: #303030;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glow-blue: 0 0 20px rgba(24, 144, 255, 0.3);
+  --glow-orange: 0 0 20px rgba(255, 122, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #1a2332 100%);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+}
+
+/* 发光效果 */
+.glow-blue {
+  box-shadow: var(--glow-blue);
+  border: 1px solid rgba(24, 144, 255, 0.3);
+}
+
+.glow-orange {
+  box-shadow: var(--glow-orange);
+  border: 1px solid rgba(255, 122, 0, 0.3);
+}
+
+/* 玻璃态效果 */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+/* 渐变按钮 */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, #40a9ff 100%);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow-blue);
+}
+
+/* 数据卡片 */
+.data-card {
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(24, 144, 255, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.data-card:hover {
+  border-color: var(--primary-blue);
+  box-shadow: var(--glow-blue);
+}
+
+/* 状态指示器 */
+.status-online {
+  color: var(--success-green);
+  text-shadow: 0 0 10px var(--success-green);
+}
+
+.status-warning {
+  color: var(--warning-yellow);
+  text-shadow: 0 0 10px var(--warning-yellow);
+}
+
+.status-error {
+  color: var(--error-red);
+  text-shadow: 0 0 10px var(--error-red);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-blue);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #40a9ff;
+}
+
+/* 动画效果 */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(24, 144, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(24, 144, 255, 0.6);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* 3D场景容器 */
+.scene-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(24, 144, 255, 0.3);
+}
+
+/* 控制面板 */
+.control-panel {
+  background: linear-gradient(135deg, rgba(10, 22, 40, 0.9) 0%, rgba(26, 35, 50, 0.9) 100%);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 数据网格 */
+.data-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .data-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .control-panel {
+    padding: 12px;
+  }
+}
+
+/* Ant Design 主题覆盖 */
+.ant-layout {
+  background: transparent !important;
+}
+
+.ant-card {
+  background: var(--glass-bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-card-head {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-statistic-content {
+  color: var(--text-primary) !important;
+}
+
+.ant-progress-text {
+  color: var(--text-primary) !important;
+}
