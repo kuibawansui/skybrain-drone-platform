@@ -60,7 +60,10 @@ export const PathPlanningPanel: React.FC<PathPlanningPanelProps> = ({
       description: '平衡速度、能耗和安全性',
       speedMultiplier: 1.0,
       riskTolerance: 0.3,
-      energyEfficiency: 1.0
+      energyEfficiency: 1.0,
+      maxSpeed: '15 m/s',
+      batteryLife: '100%',
+      safetyLevel: '中等'
     },
     eco: {
       name: '节能模式',
@@ -69,7 +72,10 @@ export const PathPlanningPanel: React.FC<PathPlanningPanelProps> = ({
       description: '最大化电池续航时间',
       speedMultiplier: 0.7,
       riskTolerance: 0.2,
-      energyEfficiency: 1.4
+      energyEfficiency: 1.4,
+      maxSpeed: '10.5 m/s',
+      batteryLife: '140%',
+      safetyLevel: '高'
     },
     fast: {
       name: '快速模式',
@@ -78,7 +84,10 @@ export const PathPlanningPanel: React.FC<PathPlanningPanelProps> = ({
       description: '最短时间到达目标',
       speedMultiplier: 1.3,
       riskTolerance: 0.4,
-      energyEfficiency: 0.8
+      energyEfficiency: 0.8,
+      maxSpeed: '19.5 m/s',
+      batteryLife: '80%',
+      safetyLevel: '较低'
     },
     safe: {
       name: '安全模式',
@@ -87,7 +96,10 @@ export const PathPlanningPanel: React.FC<PathPlanningPanelProps> = ({
       description: '最小化飞行风险',
       speedMultiplier: 0.8,
       riskTolerance: 0.1,
-      energyEfficiency: 1.1
+      energyEfficiency: 1.1,
+      maxSpeed: '12 m/s',
+      batteryLife: '110%',
+      safetyLevel: '最高'
     }
   };
 
@@ -248,6 +260,38 @@ export const PathPlanningPanel: React.FC<PathPlanningPanelProps> = ({
               borderRadius: '4px'
             }}>
               {modeConfig.description}
+            </div>
+            
+            {/* 飞行模式量化参数 */}
+            <div style={{ 
+              marginTop: '8px',
+              padding: '8px',
+              background: `rgba(${modeConfig.color === '#1890FF' ? '24,144,255' : 
+                                modeConfig.color === '#52C41A' ? '82,196,26' :
+                                modeConfig.color === '#FAAD14' ? '250,173,20' : '114,46,209'}, 0.1)`,
+              border: `1px solid ${modeConfig.color}`,
+              borderRadius: '6px'
+            }}>
+              <Row gutter={[8, 4]}>
+                <Col span={8}>
+                  <div style={{ fontSize: '10px', color: '#8C8C8C' }}>最大速度</div>
+                  <div style={{ fontSize: '11px', color: modeConfig.color, fontWeight: 'bold' }}>
+                    {modeConfig.maxSpeed}
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div style={{ fontSize: '10px', color: '#8C8C8C' }}>续航能力</div>
+                  <div style={{ fontSize: '11px', color: modeConfig.color, fontWeight: 'bold' }}>
+                    {modeConfig.batteryLife}
+                  </div>
+                </Col>
+                <Col span={8}>
+                  <div style={{ fontSize: '10px', color: '#8C8C8C' }}>安全等级</div>
+                  <div style={{ fontSize: '11px', color: modeConfig.color, fontWeight: 'bold' }}>
+                    {modeConfig.safetyLevel}
+                  </div>
+                </Col>
+              </Row>
             </div>
           </div>
 

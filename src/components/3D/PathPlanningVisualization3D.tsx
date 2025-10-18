@@ -18,6 +18,24 @@ import {
 import * as THREE from 'three';
 import { PathPlanningResult, Waypoint } from '../../algorithms/IntelligentPathPlanning';
 
+// 区域预警类型定义
+interface ZoneAlert {
+  type: 'no-fly' | 'restricted' | 'temporary';
+  level: 'warning' | 'danger' | 'critical';
+  message: string;
+  distance: number;
+}
+
+// 禁飞区域类型
+interface NoFlyZone {
+  id: string;
+  type: 'no-fly' | 'restricted' | 'temporary';
+  center: [number, number, number];
+  radius: number;
+  name: string;
+  description: string;
+}
+
 const { Option } = Select;
 
 interface PathPlanningVisualization3DProps {
@@ -33,17 +51,110 @@ const FlyingDrone: React.FC<{
   path: Waypoint[];
   isFlying: boolean;
   speed: number;
+  noFlyZones?: NoFlyZone[];
   onWaypointReached?: (waypointIndex: number) => void;
   onFlightComplete?: () => void;
-}> = ({ path, isFlying, speed, onWaypointReached, onFlightComplete }) => {
+  onZoneAlert?: (alert: ZoneAlert | null) => void;
+}> = ({ path, isFlying, speed, noFlyZones = [], onWaypointReached, onFlightComplete, onZoneAlert }) => {
   const droneRef = useRef<THREE.Group>(null);
   const [currentWaypointIndex, setCurrentWaypointIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [currentPosition, setCurrentPosition] = useState<THREE.Vector3>(
     new THREE.Vector3(...(path[0]?.position || [0, 0, 0]))
   );
+  const [rotationTime, setRotationTime] = useState(0);
+  const [currentAlert, setCurrentAlert] = useState<ZoneAlert | null>(null);
+
+  // 检测区域预警
+  const checkZoneAlerts = (position: THREE.Vector3) => {
+    let closestAlert: ZoneAlert | null = null;
+    let minDistance = Infinity;
+
+    noFlyZones.forEach(zone => {
+      const zoneCenter = new THREE.Vector3(...zone.center);
+      const distance = position.distanceTo(zoneCenter);
+      const relativeDistance = distance - zone.radius;
+
+      if (distance < minDistance) {
+        minDistance = distance;
+
+        // 根据区域类型和距离确定预警等级
+        let alert: ZoneAlert | null = null;
+
+        if (relativeDistance <= 0) {
+          // 已进入区域
+          switch (zone.type) {
+            case 'no-fly':
+              alert = {
+                type: zone.type,
+                level: 'critical',
+                message: '🚨 严重警告：已进入禁飞区域！立即返航！',
+                distance: relativeDistance
+              };
+              break;
+            case 'restricted':
+              alert = {
+                type: zone.type,
+                level: 'danger',
+                message: '⚠️ 危险：已进入限制区域！请谨慎飞行！',
+                distance: relativeDistance
+              };
+              break;
+            case 'temporary':
+              alert = {
+                type: zone.type,
+                level: 'warning',
+                message: '⚡ 注意：已进入临时管制区域！',
+                distance: relativeDistance
+              };
+              break;
+          }
+        } else if (relativeDistance <= 0.5) {
+          // 接近区域（0.5km内）
+          switch (zone.type) {
+            case 'no-fly':
+              alert = {
+                type: zone.type,
+                level: 'danger',
+                message: `🚨 警告：接近禁飞区域！距离${relativeDistance.toFixed(1)}km`,
+                distance: relativeDistance
+              };
+              break;
+            case 'restricted':
+              alert = {
+                type: zone.type,
+                level: 'warning',
+                message: `⚠️ 提醒：接近限制区域！距离${relativeDistance.toFixed(1)}km`,
+                distance: relativeDistance
+              };
+              break;
+            case 'temporary':
+              alert = {
+                type: zone.type,
+                level: 'warning',
+                message: `⚡ 提醒：接近临时管制区域！距离${relativeDistance.toFixed(1)}km`,
+                distance: relativeDistance
+              };
+              break;
+          }
+        }
+
+        if (alert) {
+          closestAlert = alert;
+        }
+      }
+    });
+
+    // 更新预警状态
+    if (JSON.stringify(closestAlert) !== JSON.stringify(currentAlert)) {
+      setCurrentAlert(closestAlert);
+      onZoneAlert?.(closestAlert);
+    }
+  };
 
   useFrame((state, delta) => {
+    // 更新旋转时间
+    setRotationTime(prev => prev + delta);
     if (!droneRef.current || !isFlying || path.length < 2) return;
 
     const currentWaypoint = path[currentWaypointIndex];
@@ -92,6 +203,9 @@ const FlyingDrone: React.FC<{
       );
     }
 
+    // 检测区域预警
+    checkZoneAlerts(currentPosition);
+
     // 添加飞行时的轻微摇摆
     const time = state.clock.getElapsedTime();
     droneRef.current.rotation.z = Math.sin(time * 8) * 0.05;
@@ -113,7 +227,7 @@ const FlyingDrone: React.FC<{
       {/* 螺旋桨 */}
       {[[-0.3, 0.1, -0.3], [0.3, 0.1, -0.3], [-0.3, 0.1, 0.3], [0.3, 0.1, 0.3]].map((pos, i) => (
         <group key={i} position={pos}>
-          <mesh rotation={[0, state.clock?.getElapsedTime() * 20 || 0, 0]}>
+          <mesh rotation={[0, rotationTime * 20, 0]}>
             <boxGeometry args={[0.4, 0.02, 0.05]} />
             <meshStandardMaterial color="#333" />
           </mesh>
@@ -425,9 +539,11 @@ const PathPlanningScene: React.FC<{
   reachedWaypoints: number[];
   nextWaypoint: number;
   pathDrawProgress: number;
+  noFlyZones: NoFlyZone[];
   onWaypointClick?: (waypoint: Waypoint) => void;
   onWaypointReached?: (waypointIndex: number) => void;
   onFlightComplete?: () => void;
+  onZoneAlert?: (alert: ZoneAlert | null) => void;
 }> = ({ 
   planningResult, 
   currentDronePosition, 
@@ -438,18 +554,12 @@ const PathPlanningScene: React.FC<{
   reachedWaypoints,
   nextWaypoint,
   pathDrawProgress,
+  noFlyZones,
   onWaypointClick,
   onWaypointReached,
-  onFlightComplete
+  onFlightComplete,
+  onZoneAlert
 }) => {
-  
-  // 模拟禁飞区域
-  const noFlyZones = useMemo(() => [
-    { center: [2, 2, 0] as [number, number, number], radius: 1.5, type: 'no-fly' as const },
-    { center: [-3, 4, 0] as [number, number, number], radius: 2, type: 'restricted' as const },
-    { center: [1, 6, 0] as [number, number, number], radius: 1, type: 'temporary' as const }
-  ], []);
-
   return (
     <>
       {/* 环境光照 */}
@@ -468,6 +578,130 @@ const PathPlanningScene: React.FC<{
         />
       </mesh>
 
+      {/* 坐标轴标注 (1km单位) */}
+      {/* X轴 (东西方向) */}
+      <Line
+        points={[new THREE.Vector3(-10, 0, 0), new THREE.Vector3(10, 0, 0)]}
+        color="#ff0000"
+        lineWidth={2}
+      />
+      <Text
+        position={[10.5, 0.5, 0]}
+        fontSize={0.8}
+        color="#ff0000"
+        anchorX="left"
+        anchorY="middle"
+      >
+        X轴 (东西) +10km
+      </Text>
+      <Text
+        position={[-10.5, 0.5, 0]}
+        fontSize={0.8}
+        color="#ff0000"
+        anchorX="right"
+        anchorY="middle"
+      >
+        -10km
+      </Text>
+
+      {/* Y轴 (高度) */}
+      <Line
+        points={[new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 10, 0)]}
+        color="#00ff00"
+        lineWidth={2}
+      />
+      <Text
+        position={[0.5, 10.5, 0]}
+        fontSize={0.8}
+        color="#00ff00"
+        anchorX="left"
+        anchorY="middle"
+      >
+        Y轴 (高度) +10km
+      </Text>
+
+      {/* Z轴 (南北方向) */}
+      <Line
+        points={[new THREE.Vector3(0, 0, -10), new THREE.Vector3(0, 0, 10)]}
+        color="#0000ff"
+        lineWidth={2}
+      />
+      <Text
+        position={[0, 0.5, 10.5]}
+        fontSize={0.8}
+        color="#0000ff"
+        anchorX="left"
+        anchorY="middle"
+      >
+        Z轴 (南北) +10km
+      </Text>
+      <Text
+        position={[0, 0.5, -10.5]}
+        fontSize={0.8}
+        color="#0000ff"
+        anchorX="right"
+        anchorY="middle"
+      >
+        -10km
+      </Text>
+
+      {/* 刻度标记 */}
+      {[-5, -2.5, 2.5, 5].map((pos) => (
+        <React.Fragment key={pos}>
+          {/* X轴刻度 */}
+          <Line
+            points={[new THREE.Vector3(pos, 0, -0.2), new THREE.Vector3(pos, 0, 0.2)]}
+            color="#ff0000"
+            lineWidth={1}
+          />
+          <Text
+            position={[pos, 0.3, 0]}
+            fontSize={0.4}
+            color="#ff0000"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {pos}km
+          </Text>
+          
+          {/* Z轴刻度 */}
+          <Line
+            points={[new THREE.Vector3(-0.2, 0, pos), new THREE.Vector3(0.2, 0, pos)]}
+            color="#0000ff"
+            lineWidth={1}
+          />
+          <Text
+            position={[0, 0.3, pos]}
+            fontSize={0.4}
+            color="#0000ff"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {pos}km
+          </Text>
+        </React.Fragment>
+      ))}
+
+      {/* Y轴刻度 (高度) */}
+      {[2.5, 5, 7.5].map((pos) => (
+        <React.Fragment key={pos}>
+          <Line
+            points={[new THREE.Vector3(-0.2, pos, 0), new THREE.Vector3(0.2, pos, 0)]}
+            color="#00ff00"
+            lineWidth={1}
+          />
+          <Text
+            position={[0.3, pos, 0]}
+            fontSize={0.4}
+            color="#00ff00"
+            anchorX="left"
+            anchorY="middle"
+          >
+            {pos}km
+          </Text>
+        </React.Fragment>
+      ))}
+
       {/* 禁飞区域 */}
       {noFlyZones.map((zone, index) => (
         <NoFlyZone
@@ -484,8 +718,10 @@ const PathPlanningScene: React.FC<{
           path={planningResult.path}
           isFlying={isFlying}
           speed={flightSpeed}
+          noFlyZones={noFlyZones}
           onWaypointReached={onWaypointReached}
           onFlightComplete={onFlightComplete}
+          onZoneAlert={onZoneAlert}
         />
       )}
 
@@ -601,10 +837,52 @@ export const PathPlanningVisualization3D: React.FC<PathPlanningVisualization3DPr
   const [nextWaypoint, setNextWaypoint] = useState(1);
   const [pathDrawProgress, setPathDrawProgress] = useState(1);
   const [flightProgress, setFlightProgress] = useState(0);
+  const [currentAlert, setCurrentAlert] = useState<ZoneAlert | null>(null);
+
+  // 示例禁飞区域数据
+  const noFlyZones: NoFlyZone[] = [
+    {
+      id: 'airport-zone',
+      type: 'no-fly',
+      center: [3, 2, 2],
+      radius: 1.5,
+      name: '机场禁飞区',
+      description: '机场周边严格禁飞区域'
+    },
+    {
+      id: 'military-zone',
+      type: 'restricted',
+      center: [-2, 3, 4],
+      radius: 2.0,
+      name: '军事限制区',
+      description: '军事设施周边限制飞行区域'
+    },
+    {
+      id: 'temp-control',
+      type: 'temporary',
+      center: [1, 4, 6],
+      radius: 1.2,
+      name: '临时管制区',
+      description: '活动期间临时管制区域'
+    }
+  ];
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // 处理区域预警
+  const handleZoneAlert = (alert: ZoneAlert | null) => {
+    setCurrentAlert(alert);
+    if (alert) {
+      console.log(`🚨 区域预警: ${alert.message}`);
+      // 这里可以添加更多预警处理逻辑，比如：
+      // - 显示弹窗警告
+      // - 自动调整飞行路径
+      // - 记录预警日志
+      // - 发送通知给操作员
+    }
+  };
 
   // 开始飞行
   const startFlight = () => {
@@ -828,6 +1106,101 @@ export const PathPlanningVisualization3D: React.FC<PathPlanningVisualization3DPr
         </Space>
       </Card>
 
+      {/* 区域预警面板 */}
+      {currentAlert && (
+        <Card
+          size="small"
+          style={{
+            position: 'absolute',
+            top: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 30,
+            width: '420px',
+            maxWidth: 'calc(100vw - 40px)',
+            background: currentAlert.level === 'critical' ? 'rgba(255, 77, 79, 0.98)' :
+                       currentAlert.level === 'danger' ? 'rgba(250, 173, 20, 0.98)' :
+                       'rgba(114, 46, 209, 0.98)',
+            border: `3px solid ${
+              currentAlert.level === 'critical' ? '#FF4D4F' :
+              currentAlert.level === 'danger' ? '#FAAD14' :
+              '#722ED1'
+            }`,
+            borderRadius: '12px',
+            boxShadow: `0 8px 32px ${
+              currentAlert.level === 'critical' ? '#FF4D4F' :
+              currentAlert.level === 'danger' ? '#FAAD14' :
+              '#722ED1'
+            }60`,
+            animation: currentAlert.level === 'critical' ? 'alertPulse 1.5s ease-in-out infinite' : 'none'
+          }}
+          bodyStyle={{ padding: '20px' }}
+        >
+          <div style={{ 
+            color: 'white', 
+            textAlign: 'center',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            lineHeight: '1.4',
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+          }}>
+            {currentAlert.message}
+          </div>
+          <div style={{ 
+            color: 'rgba(255, 255, 255, 0.9)', 
+            textAlign: 'center',
+            fontSize: '13px',
+            marginTop: '12px',
+            padding: '8px',
+            background: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: '6px'
+          }}>
+            <div style={{ marginBottom: '4px' }}>
+              区域类型: <strong>{
+                currentAlert.type === 'no-fly' ? '🚫 禁飞区' :
+                currentAlert.type === 'restricted' ? '⚠️ 限制区' :
+                '⚡ 临时管制区'
+              }</strong>
+            </div>
+            <div>
+              预警等级: <strong style={{ 
+                color: currentAlert.level === 'critical' ? '#FFE58F' :
+                       currentAlert.level === 'danger' ? '#FFF1B8' :
+                       '#F9F0FF'
+              }}>
+                {currentAlert.level === 'critical' ? '🔴 严重' :
+                 currentAlert.level === 'danger' ? '🟡 危险' :
+                 '🟣 警告'}
+              </strong>
+            </div>
+            {currentAlert.distance < 0 && (
+              <div style={{ 
+                marginTop: '8px', 
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}>
+                📍 已进入区域 {Math.abs(currentAlert.distance).toFixed(1)}km
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* 添加CSS动画样式 */}
+      <style jsx>{`
+        @keyframes alertPulse {
+          0%, 100% { 
+            transform: translateX(-50%) scale(1);
+            box-shadow: 0 8px 32px rgba(255, 77, 79, 0.6);
+          }
+          50% { 
+            transform: translateX(-50%) scale(1.02);
+            box-shadow: 0 12px 40px rgba(255, 77, 79, 0.8);
+          }
+        }
+      `}</style>
+
       {/* 路径信息面板 */}
       <Card
         size="small"
@@ -927,6 +1300,7 @@ export const PathPlanningVisualization3D: React.FC<PathPlanningVisualization3DPr
       {/* 3D Canvas */}
       {isClient && (
         <Canvas
+          key={`camera-${cameraPosition.join('-')}`}
           camera={{ position: cameraPosition, fov: 60 }}
           style={{ width: '100%', height: '100%' }}
         >
@@ -941,9 +1315,11 @@ export const PathPlanningVisualization3D: React.FC<PathPlanningVisualization3DPr
               reachedWaypoints={reachedWaypoints}
               nextWaypoint={nextWaypoint}
               pathDrawProgress={pathDrawProgress}
+              noFlyZones={noFlyZones}
               onWaypointClick={onWaypointClick}
               onWaypointReached={handleWaypointReached}
               onFlightComplete={handleFlightComplete}
+              onZoneAlert={handleZoneAlert}
             />
           </Suspense>
         </Canvas>

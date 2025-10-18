@@ -20,13 +20,14 @@ import { OptimizedRiskAssessmentPanel } from './OptimizedRiskAssessmentPanel';
 import { IntegratedDroneVisualization } from './3D/IntegratedDroneVisualization';
 import { PathPlanningPanel } from './PathPlanningPanel';
 import { PathPlanningVisualization3D } from './3D/PathPlanningVisualization3D';
-import WeatherDataPanel from './WeatherDataPanel';
+import EnhancedWeatherPanel from './EnhancedWeatherPanel';
 import AirspaceDataPanel from './AirspaceDataPanel';
-import DroneGroupManagement from './DroneGroupManagement';
-import DroneFormationVisualization3D from './3D/DroneFormationVisualization3D';
+import CompactDroneManagement from './CompactDroneManagement';
+import DynamicFormationVisualization3D from './3D/DynamicFormationVisualization3D';
 import HistoricalDataAnalytics from './HistoricalDataAnalytics';
 import PredictiveMaintenancePanel from './PredictiveMaintenancePanel';
 import RealDataIntegrationPanel from './RealDataIntegrationPanel';
+import SimpleAIEntrance from './SimpleAIEntrance';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 const { Header, Content, Sider } = Layout;
@@ -55,6 +56,7 @@ export const SkyBrainMainDashboard: React.FC = () => {
     systemHealth: 92,
     lastUpdate: new Date()
   });
+  const [pathPlanningResult, setPathPlanningResult] = useState<any>(null);
 
   // WebSocket连接状态
   const { isConnected, connectionAttempts } = useWebSocket({
@@ -367,6 +369,14 @@ export const SkyBrainMainDashboard: React.FC = () => {
                   )
                 },
                 {
+                  key: 'ai-algorithms',
+                  label: (
+                    <span style={{ color: 'white', fontSize: '12px' }}>
+                      🧠 AI算法展示
+                    </span>
+                  )
+                },
+                {
                   key: 'realdata',
                   label: (
                     <span style={{ color: 'white', fontSize: '12px' }}>
@@ -528,18 +538,30 @@ export const SkyBrainMainDashboard: React.FC = () => {
             )}
 
             {activeTab === 'pathplanning' && (
-              <Row gutter={[16, 16]} style={{ height: '100%' }}>
+              <Row gutter={[16, 16]} style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
                 <Col span={8}>
                   <Card 
                     title="路径规划控制" 
                     style={{ 
                       height: '100%',
                       background: 'rgba(0, 0, 0, 0.3)',
-                      border: '1px solid rgba(24, 144, 255, 0.3)'
+                      border: '1px solid rgba(24, 144, 255, 0.3)',
+                      display: 'flex',
+                      flexDirection: 'column'
                     }}
-                    bodyStyle={{ padding: 0, height: 'calc(100% - 57px)' }}
+                    bodyStyle={{ 
+                      padding: '8px', 
+                      height: 'calc(100% - 57px)',
+                      overflow: 'auto',
+                      flex: 1
+                    }}
                   >
-                    <PathPlanningPanel />
+                    <PathPlanningPanel 
+                      onPathGenerated={(result) => {
+                        console.log('📍 路径规划结果已生成:', result);
+                        setPathPlanningResult(result);
+                      }}
+                    />
                   </Card>
                 </Col>
                 <Col span={16}>
@@ -548,11 +570,21 @@ export const SkyBrainMainDashboard: React.FC = () => {
                     style={{ 
                       height: '100%',
                       background: 'rgba(0, 0, 0, 0.3)',
-                      border: '1px solid rgba(24, 144, 255, 0.3)'
+                      border: '1px solid rgba(24, 144, 255, 0.3)',
+                      display: 'flex',
+                      flexDirection: 'column'
                     }}
-                    bodyStyle={{ padding: 0, height: 'calc(100% - 57px)' }}
+                    bodyStyle={{ 
+                      padding: 0, 
+                      height: 'calc(100% - 57px)',
+                      overflow: 'hidden',
+                      flex: 1
+                    }}
                   >
-                    <PathPlanningVisualization3D />
+                    <PathPlanningVisualization3D 
+                      planningResult={pathPlanningResult}
+                      currentDronePosition={[0, 0, 1]}
+                    />
                   </Card>
                 </Col>
               </Row>
@@ -568,7 +600,7 @@ export const SkyBrainMainDashboard: React.FC = () => {
                 }}
                 bodyStyle={{ padding: 16, height: 'calc(100% - 57px)', overflow: 'auto' }}
               >
-                <WeatherDataPanel />
+                <EnhancedWeatherPanel />
               </Card>
             )}
 
@@ -588,7 +620,8 @@ export const SkyBrainMainDashboard: React.FC = () => {
 
             {activeTab === 'group' && (
               <Row gutter={[16, 16]} style={{ height: '100%' }}>
-                <Col span={14}>
+                {/* 左侧：紧凑版无人机管理 */}
+                <Col span={10}>
                   <Card 
                     title="🤖 无人机群组管理" 
                     style={{ 
@@ -596,12 +629,20 @@ export const SkyBrainMainDashboard: React.FC = () => {
                       background: 'rgba(0, 0, 0, 0.3)',
                       border: '1px solid rgba(24, 144, 255, 0.3)'
                     }}
-                    bodyStyle={{ padding: 16, height: 'calc(100% - 57px)', overflow: 'auto' }}
+                    styles={{ 
+                      body: { 
+                        padding: 16, 
+                        height: 'calc(100% - 57px)', 
+                        overflow: 'auto' 
+                      } 
+                    }}
                   >
-                    <DroneGroupManagement />
+                    <CompactDroneManagement />
                   </Card>
                 </Col>
-                <Col span={10}>
+                
+                {/* 右侧：3D可视化 - 给予更大空间 */}
+                <Col span={14}>
                   <Card 
                     title="🎯 3D 编队可视化" 
                     style={{ 
@@ -609,9 +650,14 @@ export const SkyBrainMainDashboard: React.FC = () => {
                       background: 'rgba(0, 0, 0, 0.3)',
                       border: '1px solid rgba(24, 144, 255, 0.3)'
                     }}
-                    bodyStyle={{ padding: 0, height: 'calc(100% - 57px)' }}
+                    styles={{ 
+                      body: { 
+                        padding: 0, 
+                        height: 'calc(100% - 57px)' 
+                      } 
+                    }}
                   >
-                    <DroneFormationVisualization3D />
+                    <DynamicFormationVisualization3D />
                   </Card>
                 </Col>
               </Row>
@@ -643,6 +689,12 @@ export const SkyBrainMainDashboard: React.FC = () => {
               >
                 <PredictiveMaintenancePanel />
               </Card>
+            )}
+
+            {activeTab === 'ai-algorithms' && (
+              <div style={{ height: '100%', overflow: 'auto' }}>
+                <SimpleAIEntrance />
+              </div>
             )}
 
             {activeTab === 'realdata' && (

@@ -65,6 +65,7 @@ export const OptimizedRiskAssessmentPanel: React.FC<OptimizedRiskAssessmentPanel
   const [riskTrend, setRiskTrend] = useState<Array<{ timestamp: number; risk: number }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+  const [useSimulatedData, setUseSimulatedData] = useState(false);
 
   // WebSocket连接
   const { sendMessage, lastMessage, isConnected, connectionAttempts } = useWebSocket({
@@ -101,18 +102,106 @@ export const OptimizedRiskAssessmentPanel: React.FC<OptimizedRiskAssessmentPanel
     onError: (error) => {
       console.error('❌ 风险评估WebSocket错误:', error);
       setIsLoading(false);
+      // WebSocket连接失败，启用模拟数据
+      setUseSimulatedData(true);
     }
   });
+
+  // 初始化数据和定时更新
+  useEffect(() => {
+    console.log('🚀 初始化优化风险评估面板');
+    
+    // 延迟3秒后如果还没有连接成功，就使用模拟数据
+    const fallbackTimer = setTimeout(() => {
+      if (!isConnected) {
+        console.log('⚠️ WebSocket连接超时，切换到模拟数据模式');
+        setUseSimulatedData(true);
+        handleRefresh();
+      }
+    }, 3000);
+
+    // 立即尝试获取数据
+    handleRefresh();
+
+    // 设置定时更新（每15秒）
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, 15000);
+
+    return () => {
+      clearTimeout(fallbackTimer);
+      clearInterval(interval);
+    };
+  }, [isConnected]);
+
+  // 生成模拟风险数据
+  const generateSimulatedRiskData = (): RiskData => {
+    const now = Date.now();
+    const timeOfDay = new Date().getHours();
+    
+    // 基于时间和随机因素生成风险数据
+    const weatherRisk = Math.min(0.1 + Math.random() * 0.3 + (timeOfDay > 18 ? 0.2 : 0), 1);
+    const obstacleRisk = Math.min(0.05 + Math.random() * 0.25, 1);
+    const populationRisk = Math.min(0.1 + Math.random() * 0.4 + (timeOfDay >= 8 && timeOfDay <= 18 ? 0.3 : 0), 1);
+    const equipmentRisk = Math.min(0.05 + Math.random() * 0.2, 1);
+    const airspaceRisk = Math.min(0.02 + Math.random() * 0.15, 1);
+    
+    // 计算综合风险
+    const overallRisk = (weatherRisk * 0.25 + obstacleRisk * 0.2 + populationRisk * 0.15 + equipmentRisk * 0.3 + airspaceRisk * 0.1);
+    
+    // 生成建议
+    const recommendations: string[] = [];
+    if (weatherRisk > 0.4) recommendations.push('天气条件不佳，建议谨慎飞行');
+    if (equipmentRisk > 0.3) recommendations.push('设备状态需要检查');
+    if (populationRisk > 0.5) recommendations.push('避开人群密集区域');
+    if (overallRisk < 0.3) recommendations.push('飞行条件良好，可以正常执行任务');
+    
+    return {
+      overallRisk,
+      riskBreakdown: {
+        weather: weatherRisk,
+        obstacle: obstacleRisk,
+        population: populationRisk,
+        equipment: equipmentRisk,
+        airspace: airspaceRisk
+      },
+      recommendations,
+      confidence: 0.75 + Math.random() * 0.2,
+      timestamp: now
+    };
+  };
 
   // 手动刷新数据
   const handleRefresh = () => {
     setIsLoading(true);
-    sendMessage({
-      type: 'request_risk_update',
-      droneId,
-      location,
-      timestamp: Date.now()
-    });
+    
+    if (useSimulatedData || !isConnected) {
+      // 使用模拟数据
+      console.log('🎲 生成模拟风险数据');
+      const simulatedData = generateSimulatedRiskData();
+      setRiskData(simulatedData);
+      setLastUpdateTime(new Date());
+      setIsLoading(false);
+      
+      // 更新趋势数据
+      setRiskTrend(prev => {
+        const newTrend = [...prev, { 
+          timestamp: simulatedData.timestamp, 
+          risk: simulatedData.overallRisk 
+        }];
+        return newTrend.slice(-20);
+      });
+      
+      onRiskUpdate?.(simulatedData);
+    } else {
+      // 尝试通过WebSocket获取数据
+      sendMessage({
+        type: 'request_risk_update',
+        droneId,
+        location,
+        timestamp: Date.now()
+      });
+    }
   };
 
   // 获取风险等级信息
@@ -287,9 +376,21 @@ export const OptimizedRiskAssessmentPanel: React.FC<OptimizedRiskAssessmentPanel
                 size="small" 
                 loading={isLoading}
                 onClick={handleRefresh}
-                disabled={!isConnected}
               >
                 刷新
+              </Button>
+              <Button 
+                type={useSimulatedData ? "primary" : "default"}
+                size="small" 
+                onClick={() => {
+                  setUseSimulatedData(!useSimulatedData);
+                  if (!useSimulatedData) {
+                    console.log('🎲 手动启用模拟数据模式');
+                    handleRefresh();
+                  }
+                }}
+              >
+                {useSimulatedData ? '模拟模式' : '启用模拟'}
               </Button>
             </Space>
           </div>
