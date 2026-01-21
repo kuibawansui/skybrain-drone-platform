@@ -29,12 +29,5 @@ const nextConfig = {
     
     return config;
   },
-  // 静态导出配置
-  exportPathMap: async function () {
-    return {
-      '/': { page: '/' },
-    };
-  }
-};
 
 module.exports = nextConfig;
