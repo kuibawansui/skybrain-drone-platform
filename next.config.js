@@ -28,6 +28,7 @@ const nextConfig = {
     }
     
     return config;
-  },
+  }, // <--- 【修复点1】webpack属性结束后，需要这个逗号
+}; // <--- 【修复点2】整个nextConfig对象结束后，需要这个花括号
 
 module.exports = nextConfig;
